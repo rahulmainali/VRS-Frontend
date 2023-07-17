@@ -1,0 +1,11 @@
+@import 'rsuite/dist/rsuite.css';
+
+.steps-item {
+  padding-left: 0px;
+}
+
+.rs-steps-item-title {
+  float: left;
+}
+
+
