@@ -1,98 +1,269 @@
-import {Link} from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { useEffect, useState, useRef } from 'react'
+import { AiOutlineStar } from 'react-icons/ai'
+import { BiEditAlt } from 'react-icons/bi'
+import PreviewImage from '../dashboard/PreviewImage'
+import { ToastContainer, toast } from 'react-toastify'
+import axios from 'axios'
+import commonAxios from '../../api/commonAxios'
+
 const Profile = () => {
+  const url = 'http://localhost:5000/api'
+  const [user, setUser] = useState({})
+  const [userName, setUserName] = useState('')
+  const [userId, setUserId] = useState('')
+  const [email, setEmail] = useState()
+  const [role, setRole] = useState()
+  const [image, setImage] = useState<any>(null)
+  const [profilePicture, setProfilePicture] = useState<any>(null)
+  const [status, setStatus] = useState('')
+  const [imageLoading, setImageLoading] = useState(true)
+  const imageRef = useRef<any>(null)
+  const [preview, setPreview] = useState<any>(null)
 
+  const getTokenFromCookies = async () => {
+    const response = await axios.get(`${url}/token`, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json'
+      },
+      withCredentials: true
+    })
+    let accessToken = ''
+    let refreshToken = ''
+    if (response) {
+      accessToken = response.data.accessToken
+      refreshToken = response.data.refreshToken
+    }
+    return { accessToken, refreshToken }
+  }
+  const renewToken = async () => {
+    try {
+      const { refreshToken } = await getTokenFromCookies()
 
-    return (
-        <div className=' w-[calc(100%-14rem)]  float-right'>
-            <div className='main-profile w-4/5 mt-14 mx-auto '>
-                <div className='row'>
-                    <div className='col-8 h-50 bg-slate-50 '>
-                        <form className="w-full">
-                            <h1 className="text-gray-800 text-2xl text-left py-2">Edit profile</h1>
-                            <div className="form-input-section">
-                                <div className="flex user-info-1 mt-2 mb-2">
-                                    <div className="user-info-input p-1 w-1/4 flex flex-col align-center">
-                                        <label className="text-left text-gray-700">FIRST NAME</label>
-                                        <input type='text' className="w-full px-3  py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-400 shadow-sm" placeholder="First Name"></input>
-                                    </div>
-                                    <div className="user-info-input flex p-1 w-1/4 flex-col align-center">
-                                        <label className="text-left text-gray-700">LAST NAME</label>
-                                        <input type='text' className="w-full px-3  py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-400 shadow-sm" placeholder="Last Name"></input>
-                                    </div>
-                                    <div className="user-info-input p-1 flex flex-col w-2/4 align-center">
-                                        <label className="text-left text-gray-700">EMAIL</label>
-                                        <input type='email' className="w-full px-3  py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-400 shadow-sm" placeholder="Email"></input>
-                                    </div>
+      if (refreshToken !== '') {
+        const response = await axios.post(`${url}/renewToken`, {
+          refreshToken: refreshToken
+        })
+        const details = response.data.payload
+        localStorage.setItem('user', JSON.stringify(response.data.payload))
+        setUser(details)
+        setUserName(details.firstName + ' ' + details.lastName)
+        setEmail(details.email)
+        setRole(details.role)
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
 
+  // handle image upload and handle image file change
 
+  const handleImageButton = () => {
+    imageRef?.current?.click()
+  }
 
-                                </div>
+  const handleImageUpload = () => {
+    console.log(imageRef.current)
+    const reader: any = new FileReader()
+    reader.readAsDataURL(imageRef.current.files[0])
+    setProfilePicture(imageRef.current.files[0])
+    reader.onload = () => {
+      setPreview(reader.result)
+      setImageLoading(false)
+    }
+  }
 
-                                <div className="flex user-info-2 mt-2 mb-2">
-                                    <div className="user-info-input p-1 w-full flex flex-col align-center">
-                                        <label className="text-left text-gray-700"> ADDRESS</label>
-                                        <input type='text' name="address" className="w-full px-3  py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-400 shadow-sm" placeholder="Address"></input>
-                                    </div>
+  const showMessage = (message: string, statusCode: number) => {
+    if (statusCode == 201 || statusCode == 200) toast.success(message)
+    else toast.error(message)
+  }
 
+  const updateProfile = async () => {
+    try {
+      const formData = new FormData()
+      console.log(profilePicture)
+      formData.append('image', profilePicture)
+      formData.append('id', userId)
+      console.log(formData)
+      const response = await axios.put(`${url}/user/profile`, formData)
+      showMessage('Profile updated successfully!', 200)
+    } catch (error) {
+      console.log(error)
+    }
+  }
 
+  const getUser = async () => {
+    try {
+      const response = await axios.get(`${url}/session`, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json'
+        },
+        withCredentials: true
+      })
+      let details = response.data.payload
+      setUser(details)
+      setUserName(details.firstName + ' ' + details.lastName)
+      setEmail(details.email)
+      setRole(details.role)
+      setImage(details.image)
+      console.log(details.image)
+      setUserId(details.id)
+      const id = details.id
+      const userData = await axios.get(`${url}/getUser/${id}`)
+      setStatus(userData.data.data.status)
+      setImage(userData.data.data.image)
+    } catch (error: any) {
+      console.log('status code' + JSON.stringify(error.response))
+      localStorage.clear()
+      if (error.response.data == 'jwt expired') {
+        console.log('jwt expired')
+        renewToken()
+      }
+    }
+  }
 
-                                </div>
-                                <div className="flex user-info-3 mt-2 mb-2">
-                                    <div className="user-info-input p-1 w-1/4 flex flex-col align-center">
-                                        <label className="text-left text-gray-700">COUNTRY</label>
-                                        <input type='text' className="w-full px-3  py-2  border-gray-300 rounded-lg focus:outline-none focus:border-indigo-300 shadow-sm" placeholder="Country"></input>
-                                    </div>
-                                    <div className="user-info-input flex p-1 w-1/4 flex-col align-center">
-                                        <label className="text-left text-gray-700">CITY</label>
-                                        <input type='text' className="w-full px-3  py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-400 shadow-sm" placeholder="City"></input>
-                                    </div>
-                                    <div className="user-info-input p-1 flex flex-col w-2/4 align-center">
-                                        <label className="text-left text-gray-700">POSTAL CODE</label>
-                                        <input type='email' className="w-full px-3  py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-400 shadow-sm" placeholder="Zip Code"></input>
-                                    </div>
-                                </div>
+  useEffect(() => {
+    getUser()
+  }, [])
 
-                                <div className="flex user-info-4 mt-2 mb-2">
-                                    <div className="user-info-input p-1 w-full flex flex-col align-center">
-                                        <label className="text-left text-gray-700">ABOUT</label>
-                                        <textarea className="w-full px-3  py-2  border-gray-300 rounded-lg focus:outline-none focus:border-indigo-300 shadow-sm"
-                                            placeholder="Country"></textarea>
-                                    </div>
-                                </div>
-
-                                <div className="flex user-info-4 mt-2 mb-2 float-right">
-                                    <div className="user-info-input p-1 w-full flex flex-col align-right ">
-                                        <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Update</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </form>
+  return (
+    <div className=" w-full float-right h-screen p-0 px-5 rounded-xl">
+      <div
+        className="dashboard-home flex bg-white main-profile w-full mx-auto  rounded shadow-xl"
+        style={{ height: '90vh' }}
+      >
+        <div className=" mx-auto w-full rounded">
+          <div className=" h-1/5 bg-gradient-to-r from-slate-50 to-blue-100"></div>
+          <div className=" w-11/12 p-0  h-4/5 mx-auto">
+            <div className="h-3/5 main ">
+              <div className="profile flex w-2/5 space-x-4 items-center">
+                {imageLoading && image ? (
+                  <div
+                    className="h-40 float-left  relative w-40 -mt-12 border-4 border-gray-400 profile-img align-center bg-no-repeat bg-center bg-cover rounded-full"
+                    style={{
+                      backgroundImage: `url(${image.url})`
+                    }}
+                  >
+                    <input
+                      type="file"
+                      className="hidden bottom-0 App-btn w-1/2 rounded-sm "
+                      ref={imageRef}
+                      onChange={handleImageUpload}
+                    ></input>
+                    <button
+                      className="absolute bottom-0 App-btn rounded-sm right-0"
+                      onClick={handleImageButton}
+                    >
+                      <BiEditAlt />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col profile-left">
+                    <div
+                      className="h-40 float-left  relative w-40 -mt-12 border-4 border-gray-400 profile-img align-center bg-no-repeat bg-center bg-cover rounded-full"
+                      style={{
+                        backgroundImage: `url(${preview})`
+                      }}
+                    >
+                      <input
+                        type="file"
+                        className="hidden bottom-0 App-btn w-1/2 rounded-sm "
+                        ref={imageRef}
+                        onChange={handleImageUpload}
+                      ></input>
+                      <button
+                        className="absolute bottom-0 App-btn rounded-sm right-0"
+                        onClick={handleImageButton}
+                      >
+                        <BiEditAlt />
+                      </button>
                     </div>
-                    <div className='col-4 '>
-                        <div className='profile card-item h-3/4 w-3/4 p-0 align-center mx-auto '>
-                            <div className='card-image h-2/5 overflow-hidden bg-no-repeat bg-center bg-cover' style={{ backgroundImage: `url('https://demos.creative-tim.com/light-bootstrap-dashboard-react/static/media/photo-1431578500526-4d9613015464.0c528dc7.jpeg')` }}>
-                                <img className='w-full' src=''></img>
-                            </div>
-                            <div className='card-body h-3/5'>
-                                <div className="h-28 w-28 -mt-12 border-4 border-gray-400 mx-auto profile-img align-center bg-no-repeat bg-center bg-cover rounded-full" style={{ backgroundImage: `url('https://media.istockphoto.com/id/1040308104/photo/mature-handsome-business-man.jpg?s=612x612&w=0&k=20&c=QbyH3XFmLOoy8NESjLQC8PYsm6g3UBL6COFaF-Qnnbk=')` }}>
-                                </div>
-                                <div className="card-body-content">
-                                    <p className="profile-card-name text-sm mt-2 text-indigo-500 text-center">Rohan Kumar Mainali</p>
-                                    <p className="about-card text-sm mt-2 text-gray-700 text-center w-3/4 align-center mx-auto">I am an enthusiastic, self-motivated, reliable, responsible and hard working person. I am a mature team worker and adaptable to all challenging situations. </p>
-                                </div>
-                            </div>
+                    <button
+                      className="App-btn p-2 rounded-sm mt-2"
+                      onClick={updateProfile}
+                    >
+                      Update
+                    </button>
+                  </div>
+                )}
+                <div>
+                  <h1 className=" text-sm   text-left text-gray-700 text-2xl font-bold ">
+                    {userName}
+                  </h1>
 
-                        </div>
-
-
-                        <Link to = "/dashboard/change-password"><button className="w-3/4 mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded ">Change Password</button></Link>
-
-                    </div>
+                  <p className="text-sm text-left"> Joined : 2023/01/25</p>
                 </div>
-            </div>
-        </div>
-    )
-}
+              </div>
+              <div className="details w-3/4 mx-auto">
+                <div className="sub-details flex float-left  space-x-24 justify-center ">
+                  <div className="left-info">
+                    <div className="basic-info flex p-3 ">
+                      <div className="verify-left ">
+                        <p className="text-left text-lg">Email: </p>
+                        <p className="text-left text-lg">Role: </p>
+                        <p className="text-left text-lg">Status</p>
+                      </div>
+                      <div className="verify-right ml-3 ">
+                        <p className="text-right text-lg ">{email}</p>
+                        <p className="text-right text-lg "> {role} </p>
+                       {status === 'pending' && (
+                          <p className="text-right text-indigo-500 ">Pending</p>
+                        )}
 
+                        {status === 'unverified' && (
+                          <p className="text-right text-indigo-500 ">
+                            Not verified
+                          </p>
+                        )}
+
+                        {status === 'verified' && (
+                          <p className="text-right text-indigo-500 ">
+                            Verified
+                          </p>
+                        )}
+                        {status !== 'verified' && status !== 'pending' && (
+                          <Link to="/dashboard/verifyKyc">
+                            <p className="text-right text-indigo-500 ">
+                              Verify
+                            </p>
+                          </Link>
+                        )}
+                        {role === 'admin' && (
+                          <p className="text-right text-indigo-500 ">
+                            Verified
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <Link to="/change-password">
+                      <button className="w-3/4 mt-2 App-btn text-white font-bold py-2 px-4 rounded ">
+                        Change Password
+                      </button>
+                    </Link>
+                  </div>
+                  <ToastContainer
+                    position="top-right"
+                    autoClose={2000}
+                    hideProgressBar={false}
+                    newestOnTop={false}
+                    closeOnClick
+                    rtl={false}
+                    pauseOnFocusLoss
+                    draggable
+                    pauseOnHover
+                    theme="light"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default Profile
